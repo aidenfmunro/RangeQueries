@@ -1,5 +1,6 @@
 #include <memory>
 #include <functional>
+#include <utility>
 
 namespace RB 
 {
@@ -44,14 +45,24 @@ class Tree
 
         //! Node methods
         
-        Node* getGrandp(Node* node) const
+        bool isLeftChild() const 
+        {
+            return parent && parent->left == this;
+        }
+
+        bool isRightChild() const 
+        {
+            return parent && parent->right == this;
+        }
+        
+        Node* getGrandp() const
         {
             return parent ? parent : nullptr;   
         }
 
-        Node* getUncle(Node* node) const
+        Node* getUncle() const
         {
-            Node* grandp = getGrandp(node);
+            Node* grandp = getGrandp();
 
             if (grandp == nullptr) return nullptr;
 
@@ -60,7 +71,6 @@ class Tree
     };
 
     //! Private Tree methods 
-    
     void rotateLeft(Node* node) 
     {
         Node* pivot = node->right;
@@ -131,9 +141,60 @@ class Tree
         pivot->right = node;
     }
 
+    void fixBlackUncle(Node* node)
+    {
+        Node* parent = node->parent;
+        Node* grandp = node->getGrandp();
+
+        if (parent->isRightChild() && node->isRightChild())
+        {
+            rotateRight(parent);
+            node = node->left;
+        }
+
+        parent = node->parent;
+        grandp = node->getGrandp();
+
+        if (parent->isLeftChild())
+        {
+            rotateRight(grandp);
+        }
+        else
+        {
+            rotateLeft(grandp);
+        }
+
+        paintBlack(parent);
+        paintRed(grandp);
+    }
+
     void fixViolation(Node* node) 
     {
+        while (node != root_ && node->parent && node->parent->color == red)
+        {
+            Node* parent = node->parent;
+            Node* grandp = node->getGrandp();
+            Node* uncle = node->getUncle();
 
+            // Case 1: Uncle is red
+            
+            if (uncle && uncle->color == red)
+            {
+                paintBlack(parent);
+                paintRed(uncle);
+                paintRed(grandp);
+
+                node = grandp;
+            }
+            else // Case 2: Uncle is black
+            {
+                fixBlackUncle(node);
+
+                break;
+            }
+        }
+
+        root_->color = black;
     }
 
     void insertNode(Node* node, const KeyT& key)
@@ -152,7 +213,7 @@ class Tree
 
                     data_.push_back(std::move(insertNodeRaw));
 
-                    // fixViolation
+                    fixViolation(insertNodeRaw);
 
                     return;
                 }
@@ -169,7 +230,7 @@ class Tree
 
                     data_.push_back(std::move(insertNodeRaw));
 
-                    // fixViolation
+                    fixViolation(insertNodeRaw);
 
                     return;
                 }
@@ -179,13 +240,13 @@ class Tree
         }
     }
 
-    void printBlack(Node* node) const
+    void paintBlack(Node* node) const
     {
         if (node != nullptr)
             node->color = black;
     }
 
-    void printRed(Node* node) const
+    void paintRed(Node* node) const
     {
         if (node != nullptr)
             node->color = red;
@@ -194,7 +255,6 @@ class Tree
     //! Public Tree methods
     
 public:
-
     void insert(const KeyT& key)
     {
         if (root_ == nullptr)
@@ -205,11 +265,11 @@ public:
 
             data_.push_back(std::move(root));
 
-            printBlack(root_);
+            paintBlack(root_);
         }
         else
         {
-            //insert private method
+            insertNode(root_, key);
         }
     }
 
